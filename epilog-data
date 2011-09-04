@@ -10,7 +10,6 @@ import yaml
 class ImportError (Exception):
     pass
 
-
 class EpilogData (object):
     magic40 = array('c', map(chr, [
         0x01, 0x04, 0x00, 0x05, 0xdc, 0x00, 0x70, 0x0a,
@@ -218,18 +217,19 @@ class EpilogData (object):
 if __name__ == "__main__":
     epilog = EpilogData()
 
-    infile = file(argv[1], 'r')
-    epilog.read(infile)
+    try:
+        infile = file(argv[1], 'r')
+        epilog.read(infile)
+    except IOError as e:
+        print "Error opening file: " + str(e)
+        exit(1)
+    except ImportError as e:
+        print "Error parsing file: " + str(e)
+        exit(1)
     
-    outfile = file(argv[2], 'w')
-    epilog.write(outfile)
-
-
-
-
-
-
-
-
-
-
+    try:
+        outfile = file(argv[2], 'w')
+        epilog.write(outfile)
+    except IOError as e:
+        print "Error writing file: " + str(e)
+        exit(1)
