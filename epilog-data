@@ -170,7 +170,6 @@ class EpilogData (object):
             ImportError("file not a dictionary")
 
         self.parsed = self.check_main(inp)
-        print repr(self.parsed)
         
 
 
@@ -196,9 +195,7 @@ class EpilogData (object):
             pack_into("<B", buf, 0x320, num_colors)
             offset = 0x560
             for k in sorted(self.parsed['colors'].keys()): 
-                print repr(k)
                 c = self.parsed['colors'][k]
-                print repr(c)
                 pack_into("<BBBBB", buf, offset, 
                     (c['color'] & 0xFF0000) >> 16,
                     (c['color'] & 0x00FF00) >> 8,
