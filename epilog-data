@@ -1,0 +1,235 @@
+#!/usr/bin/python
+
+from array import array
+from exceptions import Exception
+from struct import pack_into
+from sys import argv
+
+import yaml
+
+class ImportError (Exception):
+    pass
+
+
+class EpilogData (object):
+    magic40 = array('c', map(chr, [
+        0x01, 0x04, 0x00, 0x05, 0xdc, 0x00, 0x70, 0x0a,
+        0x1f, 0x66, 0x00, 0x00, 0x02, 0x00, 0x00, 0x01,
+        0x3a, 0x03, 0x3a, 0x03, 0x64, 0x00, 0x01, 0x00,
+        0x07, 0x00, 0xb0, 0x04, 0x02, 0x00, 0x01, 0x00,
+        0x58, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x65, 0x00, 0x74, 0x00, 0x74, 0x00, 0x65, 0x00,
+        0x72, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x4d, 0x44, 0x50, 0x45,
+        0x00, 0x10, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00,
+        0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x27,
+        0x10, 0x27, 0x10, 0x27, 0x00, 0x00, 0x10, 0x27,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        ]))
+
+    main_cstrs = {
+    
+            'mode': {
+                'vector': 0,
+                'raster': 1,
+                'combined': 2
+                },
+            'dpi': {
+                75: 75,
+                150: 150,
+                200: 200,
+                300: 300,
+                400: 400,
+                600: 600,
+                1200: 1200
+                },
+            'optimize': {
+                'on': 'on',
+                True: 'on',
+                'off': 'off',
+                False: 'off',
+                'inside': 'inside'
+                },
+            'dither': {
+                'standard': 1,
+                'floyd': 2,
+                'bright': 3,
+                'lowres': 4,
+                'jarvis': 5,
+                'stucki': 6
+                }
+            }
+
+
+    main_ranges = {
+        'width': [0, 36],
+        'height': [0, 24],
+        'raster-power': [0, 100],
+        'raster-speed': [1, 100],
+        'vector-power': [0, 100],
+        'vector-speed': [1, 100],
+        'frequency': [10, 5000],
+        }
+
+    color_cstrs = {
+            'raster': {True: 1, 'on': 1, False: 0, 'off': 0},
+            'vector': {True: 1, 'on': 1, False: 0, 'off': 0},
+            'air': {True: 1, 'on': 1, False: 0, 'off': 0}
+            }
+    color_ranges = {
+            'power': [0, 100],
+            'speed': [1, 100],
+            'frequency': [10, 5000],
+            'color': [0, 0xFFFFFF]
+            }
+
+    reqs = [
+            'mode',
+            'dpi',
+            'height',
+            'width',
+            'raster-power',
+            'raster-speed',
+            'vector-power',
+            'vector-speed',
+            'frequency',
+            ]
+
+    opts = {
+            'optimize': 'on',
+            'dither': 'jarvis',
+            'colors': {}
+            }
+
+    def check_keys(self, cs, rs, reqs, opts, checkme):
+        parsed = dict()
+
+        for key in reqs:
+            if not checkme.has_key(key):
+                raise ImportError(key + " must be specified")
+
+        for key in opts:
+            if not checkme.has_key(key):
+                checkme[key] = opts[key]
+
+        for key, value in checkme.iteritems():
+            if cs.has_key(key):
+                if not cs[key].has_key(value):
+                    raise ImportError(key + " must take a value of " + repr(cs[key].keys))
+                else:
+                    parsed[key] = cs[key][value]
+
+            if rs.has_key(key):
+                if  value < rs[key][0] or value > rs[key][1]:
+                    raise ImportError(key + " must be between " + repr(rs[key]))
+                else:
+                    parsed[key] = value
+
+            if not (key in reqs or key in opts.keys()):
+                raise ImportError(key + " isn't known to me.")
+
+        return parsed
+
+
+    def check_colors(self, colors):
+        parsed_colors = dict()
+        if len(colors.keys()) > 16:
+            raise ImportError("max 16 colors")
+
+        for key, values in colors.iteritems():
+            if not type(key) is int:
+                raise ImportError("color key must be integer")
+            if not type(values) is dict:
+                raise ImportError("color value must be dict")
+            parsed_colors[key] = self.check_keys(self.color_cstrs, self.color_ranges,
+                    self.color_cstrs.keys() + self.color_ranges.keys(), {}, values)
+        return parsed_colors
+
+    def check_main(self, main_set):
+        parsed_colors = {}
+        parsed = self.check_keys(self.main_cstrs, self.main_ranges, self.reqs, self.opts, main_set)
+        if main_set.has_key('colors'):
+            parsed_colors = self.check_colors(main_set['colors'])
+            parsed['colors'] = parsed_colors
+        return parsed
+
+    def read(self, stream):
+        inp = yaml.load(stream)
+        if not type(inp) is dict:
+            ImportError("file not a dictionary")
+
+        self.parsed = self.check_main(inp)
+        print repr(self.parsed)
+        
+
+
+    def write(self, stream):
+        buf = array('c', '\0'*0x0b4c)
+        buf[0x40:0x100] = self.magic40
+
+        pack_into("<HH", buf, 0x50, self.parsed['height'] * 254, self.parsed['width'] * 254)
+        pack_into("<H", buf, 0x5a, self.parsed['dpi'])
+        pack_into("<H", buf, 0x100, self.parsed['raster-power'])
+        pack_into("<H", buf, 0x104, self.parsed['raster-speed'])
+        pack_into("<H", buf, 0x108, self.parsed['vector-power'])
+        pack_into("<H", buf, 0x10c, self.parsed['vector-speed'])
+        pack_into("<B", buf, 0x110, self.parsed['mode'])
+        pack_into("<H", buf, 0x344, self.parsed['frequency'])
+        pack_into("<B", buf, 0x348, 1 if self.parsed['optimize'] in ['on', 'inside'] else 0)
+        pack_into("<B", buf, 0xb48, 1 if self.parsed['optimize'] == 'on' else 0)
+        pack_into("<B", buf, 0x350, self.parsed['dither'])
+
+        num_colors = len(self.parsed['colors'])
+        if num_colors > 0:
+            pack_into("<B", buf, 0x318, 1)
+            pack_into("<B", buf, 0x320, num_colors)
+            offset = 0x560
+            for k in sorted(self.parsed['colors'].keys()): 
+                print repr(k)
+                c = self.parsed['colors'][k]
+                print repr(c)
+                pack_into("<BBBBB", buf, offset, 
+                    (c['color'] & 0xFF0000) >> 16,
+                    (c['color'] & 0x00FF00) >> 8,
+                    (c['color'] & 0x0000FF),
+                    c['power'],
+                    c['speed'])
+                pack_into("<H", buf, offset+8, c['frequency'])
+                pack_into("<B", buf, offset+12, c['raster'])
+                pack_into("<B", buf, offset+16, c['vector'])
+                pack_into("<B", buf, offset+20, c['air'])
+                offset += 0x1c
+
+        buf.tofile(stream)
+
+
+if __name__ == "__main__":
+    epilog = EpilogData()
+
+    infile = file(argv[1], 'r')
+    epilog.read(infile)
+    
+    outfile = file(argv[2], 'w')
+    epilog.write(outfile)
+
+
+
+
+
+
+
+
+
+
