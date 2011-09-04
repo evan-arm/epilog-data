@@ -1,0 +1,30 @@
+mode: combined
+raster-power: 30
+raster-speed: 100
+vector-power: 0
+vector-speed: 100
+frequency: 2500
+dpi: 600
+height: 16
+width: 8
+dither: jarvis
+optimize: on
+colors:
+    1:
+        color: 0x0000FF
+        power: 90
+        speed: 40
+        frequency: 2000
+        air: on
+        raster: off
+        vector: on
+    2:
+        color: 0x000000
+        power: 90
+        speed: 10
+        frequency: 200
+        air: on
+        raster: on
+        vector: on
+
+
