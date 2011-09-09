@@ -4,6 +4,8 @@ from array import array
 from exceptions import Exception
 from struct import pack_into
 from sys import argv
+from xml.etree.ElementTree import ElementTree
+from optparse import OptionParser
 
 import yaml
 
@@ -213,9 +215,15 @@ class EpilogData (object):
 
 if __name__ == "__main__":
     epilog = EpilogData()
+    parser = OptionParser()
+    
+    parser.add_option("-a", "--auto", dest="autofile",
+            help="load size and color map from SVG file", metavar="FILE")
+
+    (options, args) = parser.parse_args()
 
     try:
-        infile = file(argv[1], 'r')
+        infile = file(args[0], 'r')
         epilog.read(infile)
     except IOError as e:
         print "Error opening file: " + str(e)
@@ -224,8 +232,36 @@ if __name__ == "__main__":
         print "Error parsing file: " + str(e)
         exit(1)
     
+    if not options.autofile is None:
+        tree = ElementTree(file=options.autofile)
+        colors = set()
+        for e in tree.getroot().getiterator():
+            if e.get("style") and not e.get("d") == "":
+                colors.add(int(dict(map(lambda s: s.split(':'), e.get("style").split(";")))['stroke'][1:], 16))
+        w = int(tree.getroot().get("width")) / 90
+        h = int(tree.getroot().get("height")) / 90
+
+        epilog.parsed['width'] = w
+        epilog.parsed['height'] = h
+
+        print repr(map(lambda c: ( 
+            ((c & 0xFF0000) >> 16) % 100, 
+            (c & 0x00FF00) >> 8, (c & 0x0000FF) * 20, 
+            (((c & 0xFF0000) >> 16) / 100) == 1), colors))
+        cparams =sorted(
+                map(lambda c: ( c,
+                    ((c & 0xFF0000) >> 16) % 100, 
+                    (c & 0x00FF00) >> 8, (c & 0x0000FF) * 20, 
+                    (((c & 0xFF0000) >> 16) / 100) == 1), colors),
+                lambda (c1, p1, s1, f1, a1), (c2, p2, s2, f2, a2): cmp(p1 * (1.0/float(s1)), p2 * (1.0/float(s2))))
+
+        i = 1
+        for (c, power, speed, freq, air) in cparams:
+            epilog.parsed['colors'][i] = dict(color=c, power=power, speed=speed, frequency=freq, air=air, raster=False, vector=True)
+            i += 1
+
     try:
-        outfile = file(argv[2], 'w')
+        outfile = file(args[1], 'w')
         epilog.write(outfile)
     except IOError as e:
         print "Error writing file: " + str(e)
