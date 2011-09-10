@@ -179,7 +179,7 @@ class EpilogData (object):
         buf = array('c', '\0'*0x0b4c)
         buf[0x40:0x100] = self.magic40
 
-        pack_into("<HH", buf, 0x50, self.parsed['height'] * 254, self.parsed['width'] * 254)
+        pack_into("<HH", buf, 0x50, int(self.parsed['height'] * 254), int(self.parsed['width'] * 254))
         pack_into("<H", buf, 0x5a, self.parsed['dpi'])
         pack_into("<H", buf, 0x100, self.parsed['raster-power'])
         pack_into("<H", buf, 0x104, self.parsed['raster-speed'])
@@ -238,16 +238,12 @@ if __name__ == "__main__":
         for e in tree.getroot().getiterator():
             if e.get("style") and not e.get("d") == "":
                 colors.add(int(dict(map(lambda s: s.split(':'), e.get("style").split(";")))['stroke'][1:], 16))
-        w = int(tree.getroot().get("width")) / 90
-        h = int(tree.getroot().get("height")) / 90
+        w = float(tree.getroot().get("width")) / 90.0
+        h = float(tree.getroot().get("height")) / 90.0
 
         epilog.parsed['width'] = w
         epilog.parsed['height'] = h
 
-        print repr(map(lambda c: ( 
-            ((c & 0xFF0000) >> 16) % 100, 
-            (c & 0x00FF00) >> 8, (c & 0x0000FF) * 20, 
-            (((c & 0xFF0000) >> 16) / 100) == 1), colors))
         cparams =sorted(
                 map(lambda c: ( c,
                     ((c & 0xFF0000) >> 16) % 100, 
