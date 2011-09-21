@@ -236,8 +236,13 @@ if __name__ == "__main__":
         tree = ElementTree(file=options.autofile)
         colors = set()
         for e in tree.getroot().getiterator():
-            if e.get("style") and not e.get("d") == "":
-                colors.add(int(dict(map(lambda s: s.split(':'), e.get("style").split(";")))['stroke'][1:], 16))
+            try:
+                if e.get("style") and not e.get("d") == "":
+                    props = dict(map(lambda s: s.split(':'), e.get("style").split(";")))
+                    if props.has_key('stroke') and props['stroke'][0] == '#':
+                        colors.add(int(props['stroke'][1:], 16))
+            except KeyError:
+                pass
         w = float(tree.getroot().get("width")) / 90.0
         h = float(tree.getroot().get("height")) / 90.0
 
@@ -245,11 +250,20 @@ if __name__ == "__main__":
         epilog.parsed['height'] = h
 
         cparams =sorted(
-                map(lambda c: ( c,
-                    ((c & 0xFF0000) >> 16) % 100, 
-                    (c & 0x00FF00) >> 8, (c & 0x0000FF) * 20, 
-                    (((c & 0xFF0000) >> 16) / 100) == 1), colors),
-                lambda (c1, p1, s1, f1, a1), (c2, p2, s2, f2, a2): cmp(p1 * (1.0/float(s1)), p2 * (1.0/float(s2))))
+                filter(lambda (c, p, s, f, a): s > 0,
+                    map(lambda c: 
+                            ( 
+                            c,
+                            ((c & 0xFF0000) >> 16) % 100, 
+                            (c & 0x00FF00) >> 8,
+                            (c & 0x0000FF) * 20, 
+                            (((c & 0xFF0000) >> 16) / 100) == 1
+                            ), 
+                        colors)
+                    ),
+                    lambda (c1, p1, s1, f1, a1), (c2, p2, s2, f2, a2): 
+                    cmp(p1 * (1.0/float(s1)), p2 * (1.0/float(s2))))
+        print repr(cparams)
 
         i = 1
         for (c, power, speed, freq, air) in cparams:
