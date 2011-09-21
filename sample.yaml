@@ -1,11 +1,11 @@
-mode: comvined
+mode: combined
 raster-power: 1
 raster-speed: 100
 vector-power: 1
-vector-speed: 5000
-frequency: 250
+vector-speed: 100
+frequency: 2500
 dpi: 1200
 height: 0.1
 width: 0.1
 dither: jarvis
-optimize: on
+optimize: true
