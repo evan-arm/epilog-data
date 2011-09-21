@@ -128,7 +128,7 @@ class EpilogData (object):
         for key, value in checkme.iteritems():
             if cs.has_key(key):
                 if not cs[key].has_key(value):
-                    raise ImportError(key + " must take a value of " + repr(cs[key].keys))
+                    raise ImportError(key + " must take a value of " + repr(cs[key].keys()))
                 else:
                     parsed[key] = cs[key][value]
 
@@ -187,7 +187,7 @@ class EpilogData (object):
         pack_into("<H", buf, 0x10c, self.parsed['vector-speed'])
         pack_into("<B", buf, 0x110, self.parsed['mode'])
         pack_into("<H", buf, 0x344, self.parsed['frequency'])
-        pack_into("<B", buf, 0x348, 1 if self.parsed['optimize'] in ['on', 'inside'] else 0)
+        pack_into("<B", buf, 0x338, 2 if self.parsed['optimize'] in ['on', 'inside'] else 0)
         pack_into("<B", buf, 0xb48, 1 if self.parsed['optimize'] == 'on' else 0)
         pack_into("<B", buf, 0x350, self.parsed['dither'])
 
