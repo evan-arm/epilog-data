@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from math import ceil, floor
 from array import array
 from exceptions import Exception
 from struct import pack_into
@@ -179,7 +180,7 @@ class EpilogData (object):
         buf = array('c', '\0'*0x0b4c)
         buf[0x40:0x100] = self.magic40
 
-        pack_into("<HH", buf, 0x50, int(self.parsed['height'] * 254), int(self.parsed['width'] * 254))
+        pack_into("<HH", buf, 0x50, int(ceil(self.parsed['height'] * 254.0)), int(ceil(self.parsed['width'] * 254.0)))
         pack_into("<H", buf, 0x5a, self.parsed['dpi'])
         pack_into("<H", buf, 0x100, self.parsed['raster-power'])
         pack_into("<H", buf, 0x104, self.parsed['raster-speed'])
@@ -267,7 +268,7 @@ if __name__ == "__main__":
 
         i = 1
         for (c, power, speed, freq, air) in cparams:
-            epilog.parsed['colors'][i] = dict(color=c, power=power, speed=speed, frequency=freq, air=air, raster=False, vector=True)
+            epilog.parsed['colors'][i] = dict(color=c, power=power, speed=speed, frequency=freq, air=True, raster=False, vector=True)
             i += 1
 
     try:
