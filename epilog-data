@@ -226,10 +226,10 @@ if __name__ == "__main__":
     try:
         infile = file(args[0], 'r')
         epilog.read(infile)
-    except IOError as e:
+    except IOError, e:
         print "Error opening file: " + str(e)
         exit(1)
-    except ImportError as e:
+    except ImportError, e:
         print "Error parsing file: " + str(e)
         exit(1)
     
@@ -284,6 +284,6 @@ if __name__ == "__main__":
     try:
         outfile = file(args[1], 'w')
         epilog.write(outfile)
-    except IOError as e:
+    except IOError, e:
         print "Error writing file: " + str(e)
         exit(1)
