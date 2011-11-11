@@ -4,7 +4,7 @@ from math import ceil, floor
 from array import array
 from exceptions import Exception
 from struct import pack_into
-from sys import argv
+from sys import argv, stderr
 from xml.etree.ElementTree import ElementTree
 from optparse import OptionParser
 
@@ -236,11 +236,21 @@ if __name__ == "__main__":
     if not options.autofile is None:
         tree = ElementTree(file=options.autofile)
         colors = set()
+        bad_strokes = []
         for e in tree.getroot().getiterator():
             try:
                 if e.get("style") and not e.get("d") == "":
                     props = dict(map(lambda s: s.split(':'), e.get("style").split(";")))
                     if props.has_key('stroke') and props['stroke'][0] == '#':
+                        try:
+                            opacity = float(props['stroke-opacity'])
+                            width = float(props['stroke-width'])
+                            if opacity != 1.0 or width >= 0.015 or width == 0.0:
+                                if bad_strokes.count((opacity, width)) == 0:
+                                    print "Bad strokes found: opacity ", opacity, " width ", width
+                                    bad_strokes.append((opacity, width))
+                        except:
+                            pass
                         colors.add(int(props['stroke'][1:], 16))
             except KeyError:
                 pass
@@ -264,10 +274,10 @@ if __name__ == "__main__":
                     ),
                     lambda (c1, p1, s1, f1, a1), (c2, p2, s2, f2, a2): 
                     cmp(p1 * (1.0/float(s1)), p2 * (1.0/float(s2))))
-        print repr(cparams)
 
         i = 1
         for (c, power, speed, freq, air) in cparams:
+            print "#", hex(c), "\t", power, "\t", speed, "\t", freq
             epilog.parsed['colors'][i] = dict(color=c, power=power, speed=speed, frequency=freq, air=True, raster=False, vector=True)
             i += 1
 
