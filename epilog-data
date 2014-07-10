@@ -14,6 +14,15 @@ class ImportError (Exception):
     pass
 
 class EpilogData (object):
+    """ A class to generate binary Epilog DAT files from a YAML dict.
+
+    Use primarily read and write to read in a YAML stream and write out a
+    stream of bytes."""
+
+    # The Epilog DAT format has a bunch of magic values in it, starting
+    # at 0x40 and going for a while. Many of these will be replaced later
+    # by parameters, but some are either constants or I couldn't figure
+    # out their meaning.
     magic40 = array('c', map(chr, [
         0x01, 0x04, 0x00, 0x05, 0xdc, 0x00, 0x70, 0x0a,
         0x1f, 0x66, 0x00, 0x00, 0x02, 0x00, 0x00, 0x01,
@@ -41,6 +50,7 @@ class EpilogData (object):
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         ]))
 
+    # "Main" parameters that are allowed, and are passed as strings/keywords.
     main_cstrs = {
     
             'mode': {
@@ -74,7 +84,7 @@ class EpilogData (object):
                 }
             }
 
-
+    # "Main" parameters that are allowed, and passed as numbers in a range.
     main_ranges = {
         'width': [0, 36],
         'height': [0, 24],
@@ -85,6 +95,8 @@ class EpilogData (object):
         'frequency': [10, 5000],
         }
 
+    # Color mapping parameters. If provided at all, all parameters and ranges
+    # must be provided.
     color_cstrs = {
             'raster': {True: 1, 'on': 1, False: 0, 'off': 0},
             'vector': {True: 1, 'on': 1, False: 0, 'off': 0},
@@ -97,6 +109,7 @@ class EpilogData (object):
             'color': [0, 0xFFFFFF]
             }
 
+    # From above, these parameters are required - we can't safely pick defaults.
     reqs = [
             'mode',
             'dpi',
@@ -109,6 +122,7 @@ class EpilogData (object):
             'frequency',
             ]
 
+    # These parameters are safe defaults, so they're optional.
     opts = {
             'optimize': 'on',
             'dither': 'jarvis',
@@ -116,6 +130,20 @@ class EpilogData (object):
             }
 
     def check_keys(self, cs, rs, reqs, opts, checkme):
+        """ Internal function to check a YAML object against a set of required
+        and optional settings.
+
+        This doesn't use just the dicts above directly because it's called two
+        different ways - once for the main settings, and once per color line 
+        if color mapping is used.
+
+        cs: string parameters
+        rs: range parameters
+        reqs: required parameters
+        opts: optional parameters
+
+        checkme: the YAML dict to check."""
+
         parsed = dict()
 
         for key in reqs:
@@ -146,6 +174,8 @@ class EpilogData (object):
 
 
     def check_colors(self, colors):
+        """Internal function to check color mapping lines."""
+
         parsed_colors = dict()
         if len(colors.keys()) > 16:
             raise ImportError("max 16 colors")
@@ -157,9 +187,12 @@ class EpilogData (object):
                 raise ImportError("color value must be dict")
             parsed_colors[key] = self.check_keys(self.color_cstrs, self.color_ranges,
                     self.color_cstrs.keys() + self.color_ranges.keys(), {}, values)
+        
         return parsed_colors
 
     def check_main(self, main_set):
+        """Check a full YAML object with main settings and colors."""
+
         parsed_colors = {}
         parsed = self.check_keys(self.main_cstrs, self.main_ranges, self.reqs, self.opts, main_set)
         if main_set.has_key('colors'):
@@ -168,6 +201,9 @@ class EpilogData (object):
         return parsed
 
     def read(self, stream):
+        """Read in a stream, convert to YAML, and parse into a valid Epilog
+        data set if possible. If not, raise ImportError."""
+
         inp = yaml.load(stream)
         if not type(inp) is dict:
             ImportError("file not a dictionary")
@@ -175,8 +211,9 @@ class EpilogData (object):
         self.parsed = self.check_main(inp)
         
 
-
     def write(self, stream):
+        """Write the data held in this object to an Epilog DAT file."""
+
         buf = array('c', '\0'*0x0b4c)
         buf[0x40:0x100] = self.magic40
 
@@ -233,15 +270,30 @@ if __name__ == "__main__":
         print "Error parsing file: " + str(e)
         exit(1)
     
+    # SVG automatic loading.
+    # We use a color -> color mapping system of
+    # Red channel 0-100 => power 0-100
+    # Blue channel 0-100 => speed 0-100
+    # Green channel 0-250 => freq 0-5000 (*20)
+
+    # Should move this to a separate function/class - we're getting into the
+    # SVG parsing business.
     if not options.autofile is None:
         tree = ElementTree(file=options.autofile)
         colors = set()
         bad_strokes = []
+
         for e in tree.getroot().getiterator():
             try:
+                # find nodes with a style and with a non-empty list of bezier points
                 if e.get("style") and not e.get("d") == "":
+
+                    #line stroke color is encoded in style parameter with semicolon separated list
                     props = dict(map(lambda s: s.split(':'), e.get("style").split(";")))
                     if props.has_key('stroke') and props['stroke'][0] == '#':
+
+                        # check for strokes that will ruin your job. Ideally this should be a separate
+                        # step, but we're here, aren't we?
                         try:
                             opacity = float(props['stroke-opacity'])
                             width = float(props['stroke-width'])
@@ -254,12 +306,21 @@ if __name__ == "__main__":
                         colors.add(int(props['stroke'][1:], 16))
             except KeyError:
                 pass
+            except ValueError:
+                pass
+
+        # SVGs are 90pts per inch (in Inkscape).
         w = float(tree.getroot().get("width")) / 90.0
         h = float(tree.getroot().get("height")) / 90.0
 
         epilog.parsed['width'] = w
         epilog.parsed['height'] = h
 
+        # sort the colors by effective power level, which is power/speed.
+        # the big map() is unpacking power, speed, and frequency from the
+        # RBG int
+        #
+        # Played with encoding air in R channel. More trouble than it's worth.
         cparams =sorted(
                 filter(lambda (c, p, s, f, a): s > 0,
                     map(lambda c: 
@@ -275,6 +336,7 @@ if __name__ == "__main__":
                     lambda (c1, p1, s1, f1, a1), (c2, p2, s2, f2, a2): 
                     cmp(p1 * (1.0/float(s1)), p2 * (1.0/float(s2))))
 
+        # Print out the results 
         i = 1
         for (c, power, speed, freq, air) in cparams:
             print "#", hex(c), "\t", power, "\t", speed, "\t", freq
